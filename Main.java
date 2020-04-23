@@ -1,5 +1,6 @@
 package readability;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -12,23 +13,15 @@ import java.util.stream.Collectors;
  * otherwise text is 'easy' to read
  */
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
+        String nameFile = args[0];
 
-        Scanner in = new Scanner(System.in);
-        String text = in.nextLine();
-        //match sentences with more than 10 words
-        String  textPattern = "(\\b|\\s)[A-Z][^\\s\\.]*(\\s[^\\s\\.]+){8,}\\s[^\\s\\.]+[!?\\.]" ;
+        Readability readability = new Readability();
+        readability.setData(nameFile);
+
+       readability.analyse();
 
 
-        String[] sentences = text.replaceAll("[,]","").split("[\\.!?]");
-
-        OptionalDouble average =Arrays.stream(sentences).map(s -> s.trim().split("\\s+")).mapToInt(s -> s.length).average();
-        if (average.getAsDouble() > 10   ){
-            System.out.println("HARD");
-        }
-        else {
-            System.out.println("EASY");
-        }
 
 
     }
