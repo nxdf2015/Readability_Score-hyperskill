@@ -8,12 +8,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Readability {
     private String text;
+    private List<String> sentences;
+    private int  countWords, countSentences;
+    private int countLetters;
+    private List<String> words;
+    private Map<String,Double> scores;
     public static String pattern = "(\\b|\\s)[A-Z][^\\s\\.]*(\\s[^\\s\\.]+){8,}\\s[^\\s\\.]+[!?\\.]" ;
+    private long countSyllabe;
+    private long countPolySyllabe;
 
-
+    public Readability(){
+        scores = new HashMap<>();
+    }
     public double averageWordBySentence(){
         String[] sentences = text.replaceAll("[,]","").split("[\\.!?]");
 
@@ -24,65 +34,151 @@ public class Readability {
     }
 
     public  void setData(String nameFile) throws IOException {
-        text = Files.readString(Path.of("./" + nameFile));
+         String dir = "C:\\Users\\nique\\IdeaProjects\\Readability Score\\";
+        text = Files.readString(Path.of("./" +  nameFile)).toLowerCase();
+        getCountSentences();
+        getCountWords();
+        getCountLetters();
+        getSyllabe();
+        computeIndex();
     }
 
-    private List<String>  sentences(){
-        return Arrays.asList(text.split("[!\\.?]")) ;
+    private void getSentences(){
+        sentences =  Arrays.asList(text.trim().split("[!\\.?]")) ;
     }
-    private double countSentences(){
-        return sentences().size();
+    private void getCountSentences(){
+        getSentences();
+        countSentences= sentences.size();
     }
-    private int   countWords(){
-        int count = 0;
-        for(String sentence : sentences()){
-            count += sentence.trim()
+    private void  getWords(){
+         words = new ArrayList<>();
+        for(String sentence : sentences){
+             words.addAll(Arrays.asList(sentence.trim()
                     .replaceAll(",", "")
-                    .split("([^\\w]+)").length;
+                    .split("([^\\w]+)")));
         }
-        return count;
+    }
+    private void   getCountWords(){
+        int count = 0;
+        getWords();
+        countWords = words.size();
      }
-     private int countLetters(){
+     private void getCountLetters(){
 
-        return (int) text.replaceAll("[\\n\\t\\s]","").length();
+       countLetters= text.replaceAll("[\\n\\t\\s]","").length();
+     }
+
+     private void getSyllabe(){
+
+        for (String word : words){
+         long countVowel =   Arrays.stream(word.split("[^aeiouy]"))
+                    .filter(t -> !t.isEmpty())
+                    .count();
+         if(word.endsWith("e") && countVowel >1){
+             countVowel--;
+         }
+          if (countVowel == 0){
+             countVowel++;
+
+         }
+          countSyllabe += countVowel;
+          countPolySyllabe += countVowel > 2 ? 1 : 0;
+        }
+
      }
     public String getText() {
         return text;
     }
-
-    private double  getScore(){
-        double score = 4.71 * countLetters() / countWords() + 0.5* countWords() / countSentences() - 21.43;
-        return  score;
+    private void computeIndex(){
+        getAutomatedScore();
+        getColemanLiauScore();
+        getFleshKincaidScore();
+        getSMOGScore();
+    }
+    private  void getAutomatedScore(){
+        double score= 4.71 * countLetters / countWords + 0.5* countWords / countSentences - 21.43;
+        scores.put("ARI",score);
     }
 
+    private  void  getFleshKincaidScore(){
+        double score=  0.39 * countWords / countSentences + 11.8 * countSyllabe / countWords - 15.59;
+        scores.put("FK",score);
+    }
+
+    private void  getSMOGScore(){
+        double score =  1.043 * Math.sqrt(countPolySyllabe * 30 / countSentences) + 3.1291;
+        scores.put("SMOG",score);
+    }
+    private void getColemanLiauScore(){
+        double score =  0.0588 * 100 * countLetters / countWords  - 0.296 * 100 * countSentences/countWords -15.8;
+        scores.put("CL",score);
+    }
 
 
     public void analyse(){
-        System.out.println("Words: "+countWords());
-        System.out.println("Sentences: "+countSentences());
-        System.out.println("Characters: "+countLetters() );
-        System.out.println("The score is: "+getScore());
-        System.out.println("This text should be understood by "+comprehensibleBy()+" year olds.");
+        System.out.println("Words: "+countWords);
+        System.out.println("Sentences: "+countSentences);
+        System.out.println("Characters: "+countLetters );
+        System.out.println("Syllables: "+countSyllabe);
+        System.out.println("PolySyllables: "+countPolySyllabe);
 
     }
 
-    private String comprehensibleBy() {
-        int score= (int) Math.ceil(getScore());
+    private String getLabel(String tag){
+        switch(tag){
+            case "ARI":
+                return "Automated Readability Index";
+            case "FK":
+                return "Flesch–Kincaid readability tests";
+            case "SMOG":
+                return "Simple Measure of Gobbledygook";
+            case "CL":
+                return "Coleman–Liau index";
+            default:
+                return "";
+        }
+    }
+
+    private String formatIndex(String tag){
+
+        double score = scores.get(tag);
+
+        return String.format("%s: %.2f (about %s year olds).",getLabel(tag),score,getAge(score));
+    }
+
+    private String getAge(double value) {
+        int score= (int) Math.floor(value);
         if (score >= 14){
-            return "24+";
+            return "24";
         }
         switch (score){
             case 1:
-                return "5-6";
+                return "6";
             case 2:
-                return "6-7";
+                return "7";
 
             case 13:
-                return "18-24";
+                return "24";
 
             default:
-                return (score+5)+"-"+(score+6);
+                return ""+(score+6);
 
+        }
+    }
+
+    public void printIndex(String selection) {
+        if (selection.equals("all")){
+            List.of("ARI","FK","SMOG","CL").stream()
+                    .forEach(tag -> System.out.println(formatIndex(tag)) );
+            double average = List.of("ARI","FK","SMOG","CL").stream()
+                    .mapToDouble(tag -> Integer.parseInt(getAge(scores.get(tag))))
+                    .average().getAsDouble();
+            System.out.println();
+            System.out.printf("This text should be understood in average by %.2f year olds.\n",average);
+
+        }
+        else {
+            System.out.println(formatIndex(selection));
         }
     }
 }
