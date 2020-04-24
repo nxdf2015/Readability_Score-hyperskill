@@ -34,7 +34,7 @@ public class Readability {
     }
 
     public  void setData(String nameFile) throws IOException {
-         String dir = "C:\\Users\\nique\\IdeaProjects\\Readability Score\\";
+
         text = Files.readString(Path.of("./" +  nameFile)).toLowerCase();
         getCountSentences();
         getCountWords();
